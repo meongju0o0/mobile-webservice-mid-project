@@ -98,10 +98,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private class CloadImage extends AsyncTask<String, Integer, List<Bitmap>> {
+    private class CloadImage extends AsyncTask<String, Integer, List<Post>> {
         @Override
-        protected List<Bitmap> doInBackground(String... urls) {
-            List<Bitmap> bitmapList = new ArrayList<>();
+        protected List<Post> doInBackground(String... urls) {
+            List<Post> postList = new ArrayList<>();
 
             try {
                 String token = "dc2370468c357d774045c432acd5936362161aa7";
@@ -127,32 +127,38 @@ public class MainActivity extends AppCompatActivity {
                     JSONArray aryJson = new JSONArray(strJson);
 
                     for (int i = 0; i < aryJson.length(); i++) {
-                        post_json = (JSONObject) aryJson.get(i);
-                        imageUrl = post_json.getString("image");
+                        JSONObject postJson = aryJson.getJSONObject(i);
+                        String title = postJson.getString("title");
+                        String text = postJson.getString("text");
+                        String author = postJson.getString("author");
+                        String imageUrl = postJson.getString("image");
 
-                        if (!imageUrl.equals("")) {
+                        Bitmap imageBitmap = null;
+                        if (!imageUrl.isEmpty()) {
                             URL myImageUrl = new URL(imageUrl);
                             conn = (HttpURLConnection) myImageUrl.openConnection();
                             InputStream imgStream = conn.getInputStream();
-
-                            Bitmap imageBitmap = BitmapFactory.decodeStream(imgStream);
-                            bitmapList.add(imageBitmap);
+                            imageBitmap = BitmapFactory.decodeStream(imgStream);
                             imgStream.close();
                         }
+
+                        Post post = new Post(title, text, author, imageBitmap);
+                        postList.add(post);
                     }
                 }
             } catch (IOException | JSONException e) {
                 e.printStackTrace();
             }
 
-            return bitmapList;
+            return postList;
         }
 
         @Override
-        protected void onPostExecute(List<Bitmap> bitmapList) {
-            if (bitmapList != null && !bitmapList.isEmpty()) {
-                imageAdapter.setImageList(bitmapList); // RecyclerView에 이미지 리스트 설정
-                Toast.makeText(getApplicationContext(), "Images downloaded", Toast.LENGTH_SHORT).show();
+        protected void onPostExecute(List<Post> postList) {
+            if (postList != null && !postList.isEmpty()) {
+                imageAdapter = new ImageAdapter(postList);
+                recyclerView.setAdapter(imageAdapter);
+                Toast.makeText(getApplicationContext(), "Images and posts downloaded", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(getApplicationContext(), "다운로드된 이미지가 없습니다.", Toast.LENGTH_SHORT).show();
             }

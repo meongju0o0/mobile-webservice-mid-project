@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -12,44 +13,46 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ImageViewHolder> {
-    private List<Bitmap> imageList;
+public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> {
+    private final List<Post> postList;
 
-    public ImageAdapter(List<Bitmap> imageList) {
-        this.imageList = imageList != null ? imageList : new ArrayList<>();
+    public ImageAdapter(List<Post> postList) {
+        this.postList = postList;
     }
 
     @NonNull
     @Override
-    public ImageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_image, parent, false);
-        return new ImageViewHolder(view);
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_post, parent, false);
+        return new ViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ImageViewHolder holder, int position) {
-        Bitmap bitmap = imageList.get(position);
-        if (bitmap != null) {
-            holder.imageView.setImageBitmap(bitmap);
-        }
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        Post post = postList.get(position);
+        holder.imageView.setImageBitmap(post.getImageBitmap());
+        holder.titleTextView.setText(post.getTitle());
+        holder.textTextView.setText(post.getText());
+        holder.authorTextView.setText("Author: " + post.getAuthor());
     }
 
     @Override
     public int getItemCount() {
-        return imageList != null ? imageList.size() : 0;
+        return postList.size();
     }
 
-    public void setImageList(List<Bitmap> newImageList) {
-        this.imageList = newImageList != null ? newImageList : new ArrayList<>();
-        notifyDataSetChanged();
-    }
-
-    public static class ImageViewHolder extends RecyclerView.ViewHolder {
+    static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView imageView;
+        TextView titleTextView;
+        TextView textTextView;
+        TextView authorTextView;
 
-        public ImageViewHolder(@NonNull View itemView) {
+        ViewHolder(View itemView) {
             super(itemView);
-            imageView = itemView.findViewById(R.id.imageViewItem);
+            imageView = itemView.findViewById(R.id.post_image);
+            titleTextView = itemView.findViewById(R.id.post_title);
+            textTextView = itemView.findViewById(R.id.post_text);
+            authorTextView = itemView.findViewById(R.id.post_author);
         }
     }
 }
