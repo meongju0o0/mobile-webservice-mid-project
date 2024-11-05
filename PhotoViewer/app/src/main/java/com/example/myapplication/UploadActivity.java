@@ -1,6 +1,8 @@
 package com.example.myapplication;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -19,6 +21,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.InputStream;
+import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -35,7 +39,7 @@ public class UploadActivity extends AppCompatActivity {
     private EditText titleEditText, textEditText, authorIdEditText;
     private ImageView imageView;
     private Bitmap selectedImageBitmap;
-    private Button uploadButton;
+    private Button uploadButton, saveButton, loadButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +51,8 @@ public class UploadActivity extends AppCompatActivity {
         authorIdEditText = findViewById(R.id.authorIdEditText);
         imageView = findViewById(R.id.imageView);
         uploadButton = findViewById(R.id.uploadButton);
+        saveButton = findViewById(R.id.saveButton);
+        loadButton = findViewById(R.id.loadButton);
 
         // 이미지 선택
         imageView.setOnClickListener(v -> {
@@ -67,6 +73,12 @@ public class UploadActivity extends AppCompatActivity {
                 Toast.makeText(this, "모든 필드를 입력하고 이미지를 선택하세요.", Toast.LENGTH_SHORT).show();
             }
         });
+
+        // 로컬에 임시 저장
+        saveButton.setOnClickListener(v -> saveDataLocally());
+
+        // 로컬에서 불러오기
+        loadButton.setOnClickListener(v -> loadDataLocally());
     }
 
     @Override
@@ -83,6 +95,50 @@ public class UploadActivity extends AppCompatActivity {
             // ImageEditActivity에서 편집된 이미지를 받아서 ImageView에 표시
             selectedImageBitmap = data.getParcelableExtra("editedImage");
             imageView.setImageBitmap(selectedImageBitmap);
+        }
+    }
+
+    // 데이터 로컬에 저장
+    private void saveDataLocally() {
+        String title = titleEditText.getText().toString();
+        String text = textEditText.getText().toString();
+        String authorId = authorIdEditText.getText().toString();
+
+        // 텍스트 데이터 SharedPreferences에 저장
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                .putString("title", title)
+                .putString("text", text)
+                .putString("authorId", authorId)
+                .apply();
+
+        // 이미지 내부 저장소에 저장
+        if (selectedImageBitmap != null) {
+            try (FileOutputStream fos = openFileOutput(TEMP_IMAGE_FILE_NAME, MODE_PRIVATE)) {
+                selectedImageBitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                Toast.makeText(this, "데이터가 로컬에 저장되었습니다.", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "데이터 저장에 실패했습니다.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    // 데이터 로컬에서 불러오기
+    private void loadDataLocally() {
+        // 텍스트 데이터 불러오기
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        titleEditText.setText(prefs.getString("title", ""));
+        textEditText.setText(prefs.getString("text", ""));
+        authorIdEditText.setText(prefs.getString("authorId", ""));
+
+        // 이미지 데이터 불러오기
+        try (FileInputStream fis = openFileInput(TEMP_IMAGE_FILE_NAME)) {
+            selectedImageBitmap = BitmapFactory.decodeStream(fis);
+            imageView.setImageBitmap(selectedImageBitmap);
+            Toast.makeText(this, "데이터가 로컬에서 불러와졌습니다.", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "로컬에 저장된 데이터가 없습니다.", Toast.LENGTH_SHORT).show();
         }
     }
 
