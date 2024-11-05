@@ -28,8 +28,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private static final int MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
@@ -168,6 +171,10 @@ public class MainActivity extends AppCompatActivity {
             int authorId = 1; // Django에서 'admin' 사용자의 실제 ID(PK)로 변경
             String token = "dc2370468c357d774045c432acd5936362161aa7";
 
+            // 현재 날짜와 시간을 지정된 형식으로 가져오기
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+            String currentDateAndTime = sdf.format(new Date());
+
             try {
                 URL url = new URL(site_url);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -186,9 +193,17 @@ public class MainActivity extends AppCompatActivity {
                 dos.writeBytes("--boundary\r\n");
                 dos.writeBytes("Content-Disposition: form-data; name=\"text\"\r\n\r\n" + text + "\r\n");
 
-                // 작성자 ID 작성 (author에 정수형 ID를 전달)
+                // 작성자 ID 작성
                 dos.writeBytes("--boundary\r\n");
                 dos.writeBytes("Content-Disposition: form-data; name=\"author\"\r\n\r\n" + authorId + "\r\n");
+
+                // 생성 날짜 전송
+                dos.writeBytes("--boundary\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"created_date\"\r\n\r\n" + currentDateAndTime + "\r\n");
+
+                // 게시 날짜 전송
+                dos.writeBytes("--boundary\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"published_date\"\r\n\r\n" + currentDateAndTime + "\r\n");
 
                 // 이미지 파일 업로드
                 dos.writeBytes("--boundary\r\n");
