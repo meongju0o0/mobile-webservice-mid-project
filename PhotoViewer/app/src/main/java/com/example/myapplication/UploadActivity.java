@@ -3,6 +3,7 @@ package com.example.myapplication;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -25,8 +26,12 @@ import java.util.Date;
 import java.util.Locale;
 
 public class UploadActivity extends AppCompatActivity {
-
     private static final int REQUEST_CODE_SELECT_IMAGE = 2;
+    private static final int REQUEST_CODE_EDIT_IMAGE = 3;
+
+    private static final String TEMP_IMAGE_FILE_NAME = "temp_image.jpg";
+    private static final String PREFS_NAME = "UploadPrefs";
+
     private EditText titleEditText, textEditText, authorIdEditText;
     private ImageView imageView;
     private Bitmap selectedImageBitmap;
@@ -67,15 +72,17 @@ public class UploadActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
         if (requestCode == REQUEST_CODE_SELECT_IMAGE && resultCode == RESULT_OK && data != null) {
-            try {
-                InputStream inputStream = getContentResolver().openInputStream(data.getData());
-                selectedImageBitmap = BitmapFactory.decodeStream(inputStream);
-                inputStream.close();
-                imageView.setImageBitmap(selectedImageBitmap);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            // 이미지 선택 시 ImageEditActivity로 전환
+            Uri imageUri = data.getData();
+            Intent editIntent = new Intent(this, ImageEditActivity.class);
+            editIntent.putExtra("imageUri", imageUri);
+            startActivityForResult(editIntent, REQUEST_CODE_EDIT_IMAGE);
+        } else if (requestCode == REQUEST_CODE_EDIT_IMAGE && resultCode == RESULT_OK && data != null) {
+            // ImageEditActivity에서 편집된 이미지를 받아서 ImageView에 표시
+            selectedImageBitmap = data.getParcelableExtra("editedImage");
+            imageView.setImageBitmap(selectedImageBitmap);
         }
     }
 
