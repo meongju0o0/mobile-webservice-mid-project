@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path, include
 from rest_framework import routers
 from rest_framework.authtoken.views import obtain_auth_token
@@ -15,4 +17,4 @@ urlpatterns = [
     path('post/<int:pk>/edit/', views.post_edit, name='post_edit'),
     path('api_root/', include(router.urls)),
     path('api-token-auth/', obtain_auth_token),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
