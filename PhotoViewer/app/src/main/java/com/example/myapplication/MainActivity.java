@@ -1,106 +1,244 @@
 package com.example.myapplication;
 
-import android.content.ContentValues;
+import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.widget.ImageView;
+import android.util.Log;
+import android.view.View;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import java.io.FileNotFoundException;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.OutputStream;
-
-import android.os.Build;
-import android.provider.MediaStore;
-import android.net.Uri;
-import android.os.Bundle;
-import android.widget.ImageView;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.content.ContentValues;
-import android.content.ContentResolver;
-import android.os.Environment;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
+    private static final int REQUEST_CODE_SELECT_IMAGE = 2;
 
+    TextView textView;
+    String site_url = "http://10.0.2.2:8000";
+    JSONObject post_json;
+    String imageUrl = null;
+
+    CloadImage taskDownload;
+    PutPost taskUpload;
+
+    RecyclerView recyclerView;
+    ImageAdapter imageAdapter;
+
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ImageView imageView = findViewById(R.id.imageView);
+        textView = findViewById(R.id.textView);
+        recyclerView = findViewById(R.id.recyclerView); // RecyclerView 초기화
 
-        String fileName = "apple.jpg"; // The image file name
-        try {
-            Uri imageUri = copyImageToDownloads(fileName);
-            if (imageUri != null) {
-                InputStream inputStream = getContentResolver().openInputStream(imageUri);
-                Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-                imageView.setImageBitmap(bitmap);
+        // RecyclerView에 어댑터 설정
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        imageAdapter = new ImageAdapter(new ArrayList<>());
+        recyclerView.setAdapter(imageAdapter);
+    }
+
+    public void onClickDownload(View v) {
+        if (taskDownload != null && taskDownload.getStatus() == AsyncTask.Status.RUNNING) {
+            taskDownload.cancel(true);
+        }
+
+        taskDownload = new CloadImage();
+        taskDownload.execute(site_url + "/api_root/Post/");
+        Toast.makeText(getApplicationContext(), "Download", Toast.LENGTH_LONG).show();
+    }
+
+    public void onClickUpload(View v) {
+        Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setType("image/*");
+        startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CODE_SELECT_IMAGE && resultCode == RESULT_OK && data != null) {
+            try {
+                InputStream inputStream = getContentResolver().openInputStream(data.getData());
+                Bitmap selectedImage = BitmapFactory.decodeStream(inputStream);
                 inputStream.close();
+
+                taskUpload = new PutPost();
+                taskUpload.execute(selectedImage);
+                Toast.makeText(this, "Uploading Image...", Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
-    private Uri copyImageToDownloads(String fileName) throws IOException {
-        // Check if the external storage is mounted
-        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-            throw new IOException("External storage is not mounted.");
-        }
+    private class CloadImage extends AsyncTask<String, Integer, List<Bitmap>> {
+        @Override
+        protected List<Bitmap> doInBackground(String... urls) {
+            List<Bitmap> bitmapList = new ArrayList<>();
 
-        // Prepare content values for the MediaStore insertion
-        ContentValues values = new ContentValues();
-        values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
-        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+            try {
+                String apiUrl = urls[0];
+                String token = "dc2370468c357d774045c432acd5936362161aa7";
+                URL urlAPI = new URL(apiUrl);
+                HttpURLConnection conn = (HttpURLConnection) urlAPI.openConnection();
+                conn.setRequestProperty("Authorization", "Token " + token);
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
 
-        // Use the DCIM or Pictures directory instead of Downloads
-        values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES);
+                int responseCode = conn.getResponseCode();
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    InputStream is = conn.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                    StringBuilder result = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        result.append(line);
+                    }
+                    is.close();
 
-        // Use MediaStore to insert the image into the Pictures folder
-        Uri imageUri = null;
-        ContentResolver resolver = getContentResolver();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-        }
+                    String strJson = result.toString();
+                    JSONArray aryJson = new JSONArray(strJson);
 
-        if (imageUri != null) {
-            // Open output stream to the newly created file in Pictures
-            OutputStream os = resolver.openOutputStream(imageUri);
-            if (os != null) {
-                // Copy the image from assets to the Pictures folder
-                InputStream is = getAssets().open(fileName);
-                byte[] buffer = new byte[1024];
-                int length;
-                while ((length = is.read(buffer)) > 0) {
-                    os.write(buffer, 0, length);
+                    for (int i = 0; i < aryJson.length(); i++) {
+                        post_json = (JSONObject) aryJson.get(i);
+                        imageUrl = post_json.getString("image");
+
+                        if (!imageUrl.equals("")) {
+                            URL myImageUrl = new URL(imageUrl);
+                            conn = (HttpURLConnection) myImageUrl.openConnection();
+                            InputStream imgStream = conn.getInputStream();
+
+                            Bitmap imageBitmap = BitmapFactory.decodeStream(imgStream);
+                            bitmapList.add(imageBitmap);
+                            imgStream.close();
+                        }
+                    }
                 }
-                os.close();
-                is.close();
-            } else {
-                throw new IOException("Failed to open output stream for writing image.");
+            } catch (IOException | JSONException e) {
+                e.printStackTrace();
             }
-        } else {
-            throw new IOException("Failed to insert image into MediaStore.");
+
+            return bitmapList;
         }
 
-        return imageUri;
+        @Override
+        protected void onPostExecute(List<Bitmap> bitmapList) {
+            if (bitmapList != null && !bitmapList.isEmpty()) {
+                imageAdapter.setImageList(bitmapList); // RecyclerView에 이미지 리스트 설정
+                Toast.makeText(getApplicationContext(), "Images downloaded", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getApplicationContext(), "다운로드된 이미지가 없습니다.", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
+    private class PutPost extends AsyncTask<Bitmap, Void, Void> {
+        @Override
+        protected Void doInBackground(Bitmap... bitmaps) {
+            if (bitmaps.length == 0) return null;
 
+            Bitmap bitmap = bitmaps[0];
+            String apiUrl = "http://10.0.2.2:8000/api_root/Post/";
+            String title = "android_test1";
+            String text = "android_test1";
+            int authorId = 1; // Django에서 'admin' 사용자의 실제 ID(PK)로 변경
+            String token = "dc2370468c357d774045c432acd5936362161aa7";
+
+            try {
+                URL url = new URL(apiUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Authorization", "Token " + token);
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=boundary");
+
+                DataOutputStream dos = new DataOutputStream(conn.getOutputStream());
+
+                // 제목 작성
+                dos.writeBytes("--boundary\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"title\"\r\n\r\n" + title + "\r\n");
+
+                // 내용 작성
+                dos.writeBytes("--boundary\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"text\"\r\n\r\n" + text + "\r\n");
+
+                // 작성자 ID 작성 (author에 정수형 ID를 전달)
+                dos.writeBytes("--boundary\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"author\"\r\n\r\n" + authorId + "\r\n");
+
+                // 이미지 파일 업로드
+                dos.writeBytes("--boundary\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"image\"; filename=\"upload.jpg\"\r\n");
+                dos.writeBytes("Content-Type: image/jpeg\r\n\r\n");
+
+                // Bitmap 이미지를 JPEG로 압축하여 전송
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
+                byte[] imageData = byteArrayOutputStream.toByteArray();
+                dos.write(imageData);
+
+                dos.writeBytes("\r\n");
+                dos.writeBytes("--boundary--\r\n");
+                dos.flush();
+                dos.close();
+
+                // 서버 응답 코드 확인
+                int responseCode = conn.getResponseCode();
+                Log.d("PutPost", "Response Code: " + responseCode);
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    Log.d("PutPost", "Post uploaded successfully.");
+                } else {
+                    Log.d("PutPost", "Post upload failed.");
+                    InputStream errorStream = conn.getErrorStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(errorStream));
+                    StringBuilder errorMessage = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        errorMessage.append(line);
+                    }
+                    reader.close();
+                    Log.e("PutPost", "Error Message: " + errorMessage.toString());
+                }
+
+                conn.disconnect();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            Toast.makeText(getApplicationContext(), "Image and post uploaded successfully", Toast.LENGTH_SHORT).show();
+        }
+    }
 }
-
