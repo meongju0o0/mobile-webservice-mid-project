@@ -21,14 +21,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -39,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_SELECT_IMAGE = 2;
 
     TextView textView;
-    String site_url = "http://10.0.2.2:8000";
+    String site_url = "https://meongju0o0.pythonanywhere.com/api_root/Post/";
     JSONObject post_json;
     String imageUrl = null;
 
@@ -70,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         taskDownload = new CloadImage();
-        taskDownload.execute(site_url + "/api_root/Post/");
+        taskDownload.execute(site_url);
         Toast.makeText(getApplicationContext(), "Download", Toast.LENGTH_LONG).show();
     }
 
@@ -105,9 +102,8 @@ public class MainActivity extends AppCompatActivity {
             List<Bitmap> bitmapList = new ArrayList<>();
 
             try {
-                String apiUrl = urls[0];
                 String token = "dc2370468c357d774045c432acd5936362161aa7";
-                URL urlAPI = new URL(apiUrl);
+                URL urlAPI = new URL(urls[0]);
                 HttpURLConnection conn = (HttpURLConnection) urlAPI.openConnection();
                 conn.setRequestProperty("Authorization", "Token " + token);
                 conn.setRequestMethod("GET");
@@ -167,14 +163,13 @@ public class MainActivity extends AppCompatActivity {
             if (bitmaps.length == 0) return null;
 
             Bitmap bitmap = bitmaps[0];
-            String apiUrl = "http://10.0.2.2:8000/api_root/Post/";
             String title = "android_test1";
             String text = "android_test1";
             int authorId = 1; // Django에서 'admin' 사용자의 실제 ID(PK)로 변경
             String token = "dc2370468c357d774045c432acd5936362161aa7";
 
             try {
-                URL url = new URL(apiUrl);
+                URL url = new URL(site_url);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
