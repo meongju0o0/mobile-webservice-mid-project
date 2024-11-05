@@ -75,9 +75,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onClickUpload(View v) {
-        Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setType("image/*");
-        startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
+        Intent intent = new Intent(this, UploadActivity.class);
+        startActivity(intent);
     }
 
     @Override
